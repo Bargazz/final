@@ -3,15 +3,16 @@ import json
 from tqdm import tqdm
 from vk_token import vk_token, user_id
 from token_yandex import ya_token
+import sys
 
 
 def max_res(photo_sizes):
-    max_res = 0
+    maxi_res = 0
     desired_obj = 0
     for index in range(len(photo_sizes)):
         get_size = photo_sizes[index]['height'] * photo_sizes[index]['width']
-        if get_size > max_res:
-            max_res = get_size
+        if get_size > maxi_res:
+            maxi_res = get_size
             desired_obj = index
     return photo_sizes[desired_obj].get('url'), photo_sizes[desired_obj].get('type')
 
@@ -34,9 +35,11 @@ class VkInfo:
         }
         uri = 'https://api.vk.com/method/'
         url = uri + 'photos.get'
-        get_json = requests.get(url, params=params).json()
-        response = get_json['response']
-        return response
+        get_json = requests.get(url, params=params)
+        if get_json.status_code == 200:
+            exception = get_json.json()
+            return exception['response']
+        sys.exit(f'Ошибка ответа {get_json.status_code}')
 
     def get_dict_info(self):
         photo_items = self.photo_info()['items']
@@ -64,6 +67,8 @@ class YaDisk:
         create_folder = requests.put(self.url, headers=self.headers, params=params)
         if create_folder.status_code == 409:
             return 'Такая папка уже существует, файлы будут загружены в неё'
+        elif create_folder.status_code >= 300:
+            sys.exit(f'Ошибка ответа {create_folder.status_code}')
         return 'Папка создана'
 
     def upload_to_folder(self, photo_info):
@@ -73,7 +78,9 @@ class YaDisk:
             photo_ext = photo_info[index]['name']
             url_photo = photo_info[index]['url']
             param = {'path': f'{self.path}/{photo_ext}', 'url': url_photo}
-            requests.post(upload_url, headers=self.headers, params=param)
+            file_uploader = requests.post(upload_url, headers=self.headers, params=param)
+            if file_uploader.status_code >= 300:
+                sys.exit(f'Ошибка ответа {file_uploader.status_code}')
         return 'Файлы загружены'
 
 
